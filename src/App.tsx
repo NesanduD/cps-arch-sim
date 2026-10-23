@@ -35,6 +35,7 @@ export default function App() {
   const [simulationStatus, setSimulationStatus] = useState<'idle' | 'starting' | 'running' | 'completed' | 'error'>('idle');
   const [simulationEdges, setSimulationEdges] = useState<SimulationTraceEdge[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   const onNodesChange = (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds));
   const onEdgesChange = (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds));
@@ -245,73 +246,204 @@ export default function App() {
       };
     });
   }, [nodes, activeSimStep]);
+
+  // --- NEW: DYNAMIC SUGGESTION ENGINE ---
+  const suggestions = useMemo(() => {
+    const currentLabels = nodes.map(n => String(n.data.label));
+    const allPossible: string[] = [];
+
+    // If input is empty, show helpful contextual hints based on current state
+    if (!input.trim()) {
+      if (currentLabels.length === 0) return ['create Internet', 'create Web Server'];
+      if (currentLabels.length === 1) return [`create Database`, `remove ${currentLabels[0]}`];
+      if (currentLabels.length >= 2) return [`link ${currentLabels[0]} to ${currentLabels[1]}`, `create Firewall`];
+    }
+
+    // 1. Suggest creating common components
+    const commonTypes = ['Database', 'Firewall', 'Load Balancer', 'Router', 'Microservice'];
+    commonTypes.forEach(t => allPossible.push(`create ${t}`));
+
+    // 2. Suggest removing existing nodes
+    currentLabels.forEach(l => allPossible.push(`remove ${l}`));
+
+    // 3. Suggest connecting existing nodes (ignoring self-connections)
+    currentLabels.forEach(l1 => {
+      currentLabels.forEach(l2 => {
+        if (l1 !== l2) {
+          allPossible.push(`link ${l1} to ${l2}`);
+          allPossible.push(`connect ${l1} to ${l2}`);
+        }
+      });
+    });
+
+    // 4. Suggest disconnecting existing edges
+    edges.forEach(e => {
+      const s = nodes.find(n => n.id === e.source)?.data.label;
+      const t = nodes.find(n => n.id === e.target)?.data.label;
+      if (s && t) allPossible.push(`disconnect ${s} from ${t}`);
+    });
+
+    // Filter by whatever the user is currently typing, limit to top 4 results
+    return allPossible
+      .filter(s => s.toLowerCase().includes(input.toLowerCase()))
+      .slice(0, 4);
+  }, [input, nodes, edges]);
   
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: 'sans-serif' }}>
-      <div style={{ flexGrow: 1, borderBottom: '2px solid #e5e7eb' }}>
-        <ReactFlow nodes={displayNodes} edges={displayEdges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onEdgesDelete={onEdgesDelete}
-          onNodesDelete={onNodesDelete} fitView>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#0f172a', fontFamily: 'Inter, system-ui, sans-serif' }}>
+      
+      {/* Top: Canvas Area */}
+      <div style={{ flexGrow: 1 }}>
+        <ReactFlow 
+          nodes={displayNodes} 
+          edges={displayEdges} 
+          onNodesChange={onNodesChange} 
+          onEdgesChange={onEdgesChange} 
+          onConnect={onConnect}
+          onEdgesDelete={onEdgesDelete}
+          onNodesDelete={onNodesDelete}
+          fitView
+        >
+          {/* Optional: Add color="#475569" to Background if the dots are too bright */}
           <Background />
-          <Controls />
+          <Controls style={{ button: { backgroundColor: '#1e293b', fill: '#f8fafc', borderBottom: '1px solid #334155' } }} />
         </ReactFlow>
       </div>
 
-      <div style={{ height: '35%', padding: '20px', backgroundColor: '#f9fafb', display: 'flex', gap: '20px' }}>
+      {/* Bottom: Modernized Command Panel */}
+      <div style={{ height: '35%', padding: '24px', backgroundColor: '#1e293b', display: 'flex', gap: '24px', borderTop: '1px solid #334155', boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+        
+        {/* Left: Input & Chat Log */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#374151' }}>Architecture Command Center</h3>
-          <input 
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleCommand}
-            placeholder="e.g., 'create Database' or 'link Internet to Database'"
-            style={{ width: '100%', padding: '12px', fontSize: '16px', borderRadius: '6px', border: '1px solid #d1d5db' }}
-          />
-          <div style={{ marginTop: '10px', flexGrow: 1, overflowY: 'auto', backgroundColor: '#fff', padding: '10px', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '14px', color: '#4b5563' }}>
-            {messages.map((msg, idx) => (
-              <div key={idx} style={{ marginBottom: '4px', borderBottom: '1px solid #f3f4f6', paddingBottom: '4px' }}>
-                <span style={{ color: '#9ca3af', marginRight: '8px' }}>{messages.length - idx}.</span>{msg}
+          <h3 style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>
+            Architecture Command Center
+          </h3>
+          
+          {/* Input with Auto-Suggest Dropdown */}
+          <div style={{ position: 'relative' }}>
+            
+            {/* Floating Suggestion Menu - NOW CHECKS isInputFocused */}
+            {isInputFocused && suggestions.length > 0 && (
+              <div style={{
+                position: 'absolute', bottom: '100%', left: 0, right: 0, marginBottom: '8px',
+                backgroundColor: '#1e293b', border: '1px solid #3b82f6', borderRadius: '8px',
+                overflow: 'hidden', boxShadow: '0 -10px 15px -3px rgba(0, 0, 0, 0.3)', zIndex: 10
+              }}>
+                {suggestions.map((s, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      setInput(s);
+                      setIsInputFocused(false); // Hide menu after selection
+                    }}
+                    style={{
+                      padding: '10px 16px', cursor: 'pointer', color: '#e2e8f0', fontSize: '14px',
+                      borderBottom: idx === suggestions.length - 1 ? 'none' : '1px solid #334155',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#334155'}
+                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <span style={{ color: '#3b82f6', marginRight: '8px', fontWeight: 'bold' }}>↵</span> {s}
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+
+            <input 
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleCommand}
+              placeholder="e.g., 'create Database' or 'link Internet to Database' (Press Enter)"
+              style={{ 
+                width: '100%', padding: '14px 16px', fontSize: '15px', borderRadius: '8px', 
+                border: '1px solid #475569', backgroundColor: '#0f172a', color: '#f8fafc', 
+                outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#3b82f6';
+                setIsInputFocused(true); // Show menu
+              }}
+              onBlur={(e) => {
+                // Delay blur slightly so click events on the suggestion menu can fire before it unmounts
+                setTimeout(() => {
+                  e.target.style.borderColor = '#475569';
+                  setIsInputFocused(false); // Hide menu
+                }, 200);
+              }}
+            />
+          </div>
+          
+          {/* Terminal-style Log */}
+          <div style={{ 
+            marginTop: '12px', flexGrow: 1, overflowY: 'auto', backgroundColor: '#0f172a', 
+            padding: '16px', borderRadius: '8px', border: '1px solid #334155', fontSize: '14px' 
+          }}>
+            {messages.map((msg, idx) => {
+              // Color code messages based on content
+              const isError = msg.toLowerCase().includes('error');
+              const isSuccess = msg.toLowerCase().includes('completed') || msg.toLowerCase().includes('connected');
+              const textColor = isError ? '#ef4444' : (isSuccess ? '#10b981' : '#cbd5e1');
+
+              return (
+                <div key={idx} style={{ marginBottom: '8px', borderBottom: idx === messages.length - 1 ? 'none' : '1px solid #1e293b', paddingBottom: '8px', color: textColor, display: 'flex' }}>
+                  <span style={{ color: '#475569', marginRight: '12px', minWidth: '24px', textAlign: 'right', fontSize: '12px', paddingTop: '2px' }}>
+                    {messages.length - idx}.
+                  </span>
+                  <span style={{ lineHeight: '1.4' }}>{msg}</span>
+                </div>
+              )
+            })}
           </div>
         </div>
 
-        <div style={{ width: '300px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {/* Right: Controls & Stepper */}
+        <div style={{ width: '320px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          
           <button 
             disabled={simulationStatus === 'starting' || simulationStatus === 'running'}
-            style={{ padding: '12px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', color: 'white', border: 'none', borderRadius: '6px', backgroundColor: (simulationStatus === 'starting' || simulationStatus === 'running') ? '#9ca3af' : '#2563eb' }}
+            style={{ 
+              padding: '14px', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer', color: 'white', 
+              border: 'none', borderRadius: '8px', transition: 'background-color 0.2s',
+              backgroundColor: (simulationStatus === 'starting' || simulationStatus === 'running') ? '#475569' : '#2563eb',
+              boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2)'
+            }}
             onClick={handleRunSimulation}
           >
-            {simulationStatus === 'running' ? 'Running (~15s)...' : 'Run Simulation ▶'}
+            {simulationStatus === 'running' ? 'Running Simulation (~15s)...' : 'Run Simulation ▶'}
           </button>
 
-          {/* RESET BUTTON */}
           {simulationStatus === 'completed' && (
             <button 
-              style={{ padding: '8px', fontSize: '14px', cursor: 'pointer', color: '#374151', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: '#fff' }}
+              style={{ 
+                padding: '10px', fontSize: '14px', cursor: 'pointer', color: '#cbd5e1', 
+                border: '1px solid #475569', borderRadius: '8px', backgroundColor: '#0f172a',
+                transition: 'all 0.2s ease'
+              }}
               onClick={() => { setSimulationStatus('idle'); setSimulationEdges([]); setCurrentStep(0); }}
+              onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#1e293b'; e.currentTarget.style.color = '#f8fafc'; }}
+              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#0f172a'; e.currentTarget.style.color = '#cbd5e1'; }}
             >
               Clear Trace ↺
             </button>
           )}
 
           {simulationStatus === 'completed' && simulationEdges.length > 0 && (
-            <div style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
-              <h4 style={{ margin: '0 0 10px 0', textAlign: 'center', color: '#1f2937' }}>
-                Step {currentStep + 1} of {simulationEdges.length}
+            <div style={{ backgroundColor: '#0f172a', padding: '16px', borderRadius: '8px', border: '1px solid #334155' }}>
+              <h4 style={{ margin: '0 0 12px 0', textAlign: 'center', color: '#f8fafc', fontSize: '14px' }}>
+                Simulation Step <span style={{ color: '#3b82f6' }}>{currentStep + 1}</span> of {simulationEdges.length}
               </h4>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', gap: '8px' }}>
                 <button 
                   onClick={() => setCurrentStep(prev => Math.max(0, prev - 1))}
                   disabled={currentStep === 0}
                   style={{ 
-                    padding: '8px 12px', 
-                    cursor: currentStep === 0 ? 'not-allowed' : 'pointer', 
-                    borderRadius: '4px', 
-                    border: '1px solid #d1d5db', 
-                    backgroundColor: '#f3f4f6',
-                    color: currentStep === 0 ? '#9ca3af' : '#1f2937', // Light gray if disabled, dark gray if active
-                    fontWeight: 'bold'
+                    flex: 1, padding: '8px', cursor: currentStep === 0 ? 'not-allowed' : 'pointer', 
+                    borderRadius: '6px', border: '1px solid #334155', 
+                    backgroundColor: currentStep === 0 ? '#0f172a' : '#1e293b',
+                    color: currentStep === 0 ? '#475569' : '#e2e8f0', fontWeight: 'bold'
                   }}
                 >
                   ◀ Prev
@@ -320,24 +452,28 @@ export default function App() {
                   onClick={() => setCurrentStep(prev => Math.min(simulationEdges.length - 1, prev + 1))}
                   disabled={currentStep === simulationEdges.length - 1}
                   style={{ 
-                    padding: '8px 12px', 
-                    cursor: currentStep === simulationEdges.length - 1 ? 'not-allowed' : 'pointer', 
-                    borderRadius: '4px', 
-                    border: '1px solid #d1d5db', 
-                    backgroundColor: '#f3f4f6',
-                    color: currentStep === simulationEdges.length - 1 ? '#9ca3af' : '#1f2937', // Light gray if disabled, dark gray if active
-                    fontWeight: 'bold'
+                    flex: 1, padding: '8px', cursor: currentStep === simulationEdges.length - 1 ? 'not-allowed' : 'pointer', 
+                    borderRadius: '6px', border: '1px solid #334155', 
+                    backgroundColor: currentStep === simulationEdges.length - 1 ? '#0f172a' : '#1e293b',
+                    color: currentStep === simulationEdges.length - 1 ? '#475569' : '#e2e8f0', fontWeight: 'bold'
                   }}
                 >
                   Next ▶
                 </button>
               </div>
+              
               {activeSimStep && (
-                <div style={{ fontSize: '14px', color: '#4b5563', backgroundColor: '#eff6ff', padding: '10px', borderRadius: '4px' }}>
-                  <div style={{ fontWeight: 'bold', color: '#1d4ed8', marginBottom: '5px' }}>Trace Details:</div>
-                  <div>Latency: {activeSimStep.latency_ms} ms</div>
-                  <div>Packets: {activeSimStep.packets}</div>
-                  <div>Status: {activeSimStep.status}</div>
+                <div style={{ fontSize: '13px', color: '#94a3b8', backgroundColor: '#1e293b', padding: '12px', borderRadius: '6px', border: '1px solid #334155' }}>
+                  <div style={{ fontWeight: 'bold', color: '#60a5fa', marginBottom: '8px', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.5px' }}>Metrics</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span>Latency:</span> <span style={{ color: '#f8fafc' }}>{activeSimStep.latency_ms} ms</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span>Packets:</span> <span style={{ color: '#f8fafc' }}>{activeSimStep.packets}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Status:</span> <span style={{ color: activeSimStep.status === 'success' ? '#10b981' : '#ef4444' }}>{activeSimStep.status}</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -345,5 +481,5 @@ export default function App() {
         </div>
       </div>
     </div>
-  );
+  );;
 }
