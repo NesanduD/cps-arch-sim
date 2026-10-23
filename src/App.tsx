@@ -1,4 +1,4 @@
-import { useState, KeyboardEvent } from 'react';
+import { useState, KeyboardEvent, useMemo } from 'react';
 import {
   ReactFlow,
   Background,
@@ -29,7 +29,6 @@ export default function App() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<string[]>(['System initialized. Try typing "add Database".']);
 
-  // NEW: Simulation States
   const [simulationStatus, setSimulationStatus] = useState<'idle' | 'starting' | 'running' | 'completed' | 'error'>('idle');
   const [simulationEdges, setSimulationEdges] = useState<any[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
@@ -40,6 +39,13 @@ export default function App() {
   // --- PARSER LOGIC ---
   const handleCommand = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter' || !input.trim()) return;
+
+    // Reset simulation if user alters architecture
+    if (simulationStatus === 'completed') {
+      setSimulationStatus('idle');
+      setSimulationEdges([]);
+      setCurrentStep(0);
+    }
 
     const command = parseCommand(input);
     let logMsg = '';
@@ -71,11 +77,7 @@ export default function App() {
         const sourceNode = nodes.find(n => n.data.label.toLowerCase() === command.source.toLowerCase());
         const targetNode = nodes.find(n => n.data.label.toLowerCase() === command.target.toLowerCase());
         if (sourceNode && targetNode) {
-          const newEdge: ArchEdge = {
-            id: `edge_${uuidv4()}`,
-            source: sourceNode.id,
-            target: targetNode.id,
-          };
+          const newEdge: ArchEdge = { id: `edge_${uuidv4()}`, source: sourceNode.id, target: targetNode.id };
           setEdges((eds) => [...eds, newEdge]);
           logMsg = `Connected ${command.source} to ${command.target}`;
         } else {
@@ -98,28 +100,21 @@ export default function App() {
         logMsg = command.message;
         break;
     }
-
     setMessages((prev) => [logMsg, ...prev]);
     setInput('');
   };
 
-  // --- NEW: API INTEGRATION LOGIC ---
+  // --- API INTEGRATION LOGIC ---
   const handleRunSimulation = async () => {
     if (nodes.length < 2) {
       setMessages((prev) => ['Error: At least 2 nodes are required to run a simulation.', ...prev]);
       return;
     }
-
     try {
       setSimulationStatus('starting');
       setMessages((prev) => ['Starting simulation request...', ...prev]);
-
-      // 1. Map React Flow nodes to the exact format the Python API expects
-      const payload = {
-        nodes: nodes.map(n => ({ id: n.id, type: n.data.type }))
-      };
-
-      // 2. Start the simulation via POST
+      
+      const payload = { nodes: nodes.map(n => ({ id: n.id, type: n.data.type })) };
       const startRes = await fetch('/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -131,16 +126,13 @@ export default function App() {
       const simId = startData.simulation_id;
 
       setSimulationStatus('running');
-      setMessages((prev) => [`Simulation ${simId} running. Waiting for results (approx 15s)...`, ...prev]);
+      setMessages((prev) => [`Simulation running. Waiting for results (approx 15s)...`, ...prev]);
 
-      // 3. Poll the GET endpoint every 1.5 seconds
       let attempts = 0;
-      while (attempts < 40) { // Max 60 seconds
+      while (attempts < 40) {
         await new Promise(resolve => setTimeout(resolve, 1500));
-        
         const pollRes = await fetch(`/simulate/${simId}`);
         if (!pollRes.ok) throw new Error('Failed to fetch simulation status');
-        
         const pollData = await pollRes.json();
 
         if (pollData.status === 'completed') {
@@ -153,31 +145,54 @@ export default function App() {
         attempts++;
       }
       throw new Error('Simulation timed out after 60 seconds.');
-
     } catch (error: any) {
       setSimulationStatus('error');
       setMessages((prev) => [`API Error: ${error.message}`, ...prev]);
     }
   };
 
+  // --- NEW: VISUAL DERIVED STATE ---
+  const activeSimStep = simulationStatus === 'completed' ? simulationEdges[currentStep] : null;
+
+  // Render architecture edges as solid gray. If a simulation is active, render an animated blue trace edge over it.
+  const displayEdges = useMemo(() => {
+    const baseEdges = edges.map(e => ({ ...e, style: { stroke: '#9ca3af', strokeWidth: 2 } }));
+    
+    if (activeSimStep) {
+      baseEdges.push({
+        id: `trace_${currentStep}`,
+        source: activeSimStep.source,
+        target: activeSimStep.target,
+        animated: true,
+        style: { stroke: '#3b82f6', strokeWidth: 4 } // Thick blue animated line
+      });
+    }
+    return baseEdges;
+  }, [edges, activeSimStep, currentStep]);
+
+  // Highlight nodes involved in the current simulation step
+  const displayNodes = useMemo(() => {
+    return nodes.map(node => {
+      const isSource = activeSimStep?.source === node.id;
+      const isTarget = activeSimStep?.target === node.id;
+      return {
+        ...node,
+        style: (isSource || isTarget) ? { border: '2px solid #3b82f6', boxShadow: '0 0 10px rgba(59, 130, 246, 0.5)' } : {}
+      };
+    });
+  }, [nodes, activeSimStep]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: 'sans-serif' }}>
-      {/* Top: Canvas Area */}
+      
       <div style={{ flexGrow: 1, borderBottom: '2px solid #e5e7eb' }}>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          fitView
-        >
+        <ReactFlow nodes={displayNodes} edges={displayEdges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} fitView>
           <Background />
           <Controls />
         </ReactFlow>
       </div>
 
-      {/* Bottom: Command Panel & History */}
-      <div style={{ height: '30%', padding: '20px', backgroundColor: '#f9fafb', display: 'flex', gap: '20px' }}>
+      <div style={{ height: '35%', padding: '20px', backgroundColor: '#f9fafb', display: 'flex', gap: '20px' }}>
         
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#374151' }}>Architecture Command Center</h3>
@@ -186,31 +201,59 @@ export default function App() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleCommand}
-            placeholder="e.g., 'add Firewall' or 'connect Internet to Firewall' (Press Enter)"
+            placeholder="e.g., 'add Firewall' or 'connect Internet to Firewall'"
             style={{ width: '100%', padding: '12px', fontSize: '16px', borderRadius: '6px', border: '1px solid #d1d5db' }}
           />
-          
           <div style={{ marginTop: '10px', flexGrow: 1, overflowY: 'auto', backgroundColor: '#fff', padding: '10px', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '14px', color: '#4b5563' }}>
             {messages.map((msg, idx) => (
               <div key={idx} style={{ marginBottom: '4px', borderBottom: '1px solid #f3f4f6', paddingBottom: '4px' }}>
-                <span style={{ color: '#9ca3af', marginRight: '8px' }}>{messages.length - idx}.</span>
-                {msg}
+                <span style={{ color: '#9ca3af', marginRight: '8px' }}>{messages.length - idx}.</span>{msg}
               </div>
             ))}
           </div>
         </div>
 
-        <div style={{ width: '250px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: '10px' }}>
+        <div style={{ width: '300px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <button 
             disabled={simulationStatus === 'starting' || simulationStatus === 'running'}
-            style={{ 
-              padding: '12px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', color: 'white', border: 'none', borderRadius: '6px', width: '100%',
-              backgroundColor: (simulationStatus === 'starting' || simulationStatus === 'running') ? '#9ca3af' : '#2563eb'
-            }}
+            style={{ padding: '12px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', color: 'white', border: 'none', borderRadius: '6px', backgroundColor: (simulationStatus === 'starting' || simulationStatus === 'running') ? '#9ca3af' : '#2563eb' }}
             onClick={handleRunSimulation}
           >
             {simulationStatus === 'running' ? 'Running (~15s)...' : 'Run Simulation ▶'}
           </button>
+
+          {/* NEW: Stepper UI */}
+          {simulationStatus === 'completed' && simulationEdges.length > 0 && (
+            <div style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+              <h4 style={{ margin: '0 0 10px 0', textAlign: 'center', color: '#1f2937' }}>
+                Simulation Step {currentStep + 1} of {simulationEdges.length}
+              </h4>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
+                <button 
+                  onClick={() => setCurrentStep(prev => Math.max(0, prev - 1))}
+                  disabled={currentStep === 0}
+                  style={{ padding: '8px 12px', cursor: currentStep === 0 ? 'not-allowed' : 'pointer', borderRadius: '4px', border: '1px solid #d1d5db', backgroundColor: '#f3f4f6' }}
+                >
+                  ◀ Prev
+                </button>
+                <button 
+                  onClick={() => setCurrentStep(prev => Math.min(simulationEdges.length - 1, prev + 1))}
+                  disabled={currentStep === simulationEdges.length - 1}
+                  style={{ padding: '8px 12px', cursor: currentStep === simulationEdges.length - 1 ? 'not-allowed' : 'pointer', borderRadius: '4px', border: '1px solid #d1d5db', backgroundColor: '#f3f4f6' }}
+                >
+                  Next ▶
+                </button>
+              </div>
+              {activeSimStep && (
+                <div style={{ fontSize: '14px', color: '#4b5563', backgroundColor: '#eff6ff', padding: '10px', borderRadius: '4px' }}>
+                  <div style={{ fontWeight: 'bold', color: '#1d4ed8', marginBottom: '5px' }}>Trace Details:</div>
+                  <div>Latency: {activeSimStep.latency_ms} ms</div>
+                  <div>Packets: {activeSimStep.packets}</div>
+                  <div>Status: {activeSimStep.status}</div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
       </div>
