@@ -1,4 +1,5 @@
-import { useState, KeyboardEvent, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import type { KeyboardEvent } from 'react';
 import {
   ReactFlow,
   Background,
@@ -36,9 +37,10 @@ export default function App() {
   const [simulationEdges, setSimulationEdges] = useState<SimulationTraceEdge[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
-  const onNodesChange = (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds));
-  const onEdgesChange = (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds));
+  const onNodesChange = useCallback((changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds) as ArchNode[]), [setNodes]);
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds) as ArchEdge[]), [setEdges]);
   const onConnect = useCallback((connection: Connection) => {
     // Prevent duplicate edges when using the mouse
     const duplicate = edges.some(edge => edge.source === connection.source && edge.target === connection.target);
@@ -202,10 +204,10 @@ export default function App() {
 
   // FULL TRACE VISUALIZATION
   const displayEdges = useMemo(() => {
-    const baseEdges = edges.map(e => ({ 
+    const baseEdges: ArchEdge[] = edges.map(e => ({ 
       ...e, 
       style: { 
-        stroke: e.selected ? '#ef4444' : '#9ca3af', // Red if selected, gray if not
+        stroke: e.selected ? '#ef4444' : '#9ca3af', 
         strokeWidth: e.selected ? 3 : 2 
       } 
     }));
@@ -247,40 +249,51 @@ export default function App() {
     });
   }, [nodes, activeSimStep]);
 
-  // --- NEW: DYNAMIC SUGGESTION ENGINE ---
+  // --- NEW: DYNAMIC SUGGESTION ENGINE (ALL ALIASES) ---
   const suggestions = useMemo(() => {
     const currentLabels = nodes.map(n => String(n.data.label));
     const allPossible: string[] = [];
 
-    // If input is empty, show helpful contextual hints based on current state
+    // Default suggestions when the input is empty
     if (!input.trim()) {
-      if (currentLabels.length === 0) return ['create Internet', 'create Web Server'];
-      if (currentLabels.length === 1) return [`create Database`, `remove ${currentLabels[0]}`];
-      if (currentLabels.length >= 2) return [`link ${currentLabels[0]} to ${currentLabels[1]}`, `create Firewall`];
+      if (currentLabels.length === 0) return ['add Internet', 'create Web Server'];
+      if (currentLabels.length === 1) return [`add Database`, `remove ${currentLabels[0]}`];
+      if (currentLabels.length >= 2) return [`connect ${currentLabels[0]} to ${currentLabels[1]}`, `add Firewall`];
     }
 
-    // 1. Suggest creating common components
-    const commonTypes = ['Database', 'Firewall', 'Load Balancer', 'Router', 'Microservice'];
-    commonTypes.forEach(t => allPossible.push(`create ${t}`));
+    // 1. Suggest creating nodes (all aliases)
+    const commonTypes = ['Database', 'Firewall', 'Load Balancer', 'Router', 'Microservice', 'API'];
+    commonTypes.forEach(t => {
+      allPossible.push(`add ${t}`);
+      allPossible.push(`create ${t}`);
+      allPossible.push(`new ${t}`);
+    });
 
-    // 2. Suggest removing existing nodes
-    currentLabels.forEach(l => allPossible.push(`remove ${l}`));
+    // 2. Suggest removing existing nodes (all aliases)
+    currentLabels.forEach(l => {
+      allPossible.push(`remove ${l}`);
+      allPossible.push(`delete ${l}`);
+      allPossible.push(`drop ${l}`);
+    });
 
-    // 3. Suggest connecting existing nodes (ignoring self-connections)
+    // 3. Suggest connecting existing nodes (all aliases)
     currentLabels.forEach(l1 => {
       currentLabels.forEach(l2 => {
         if (l1 !== l2) {
-          allPossible.push(`link ${l1} to ${l2}`);
           allPossible.push(`connect ${l1} to ${l2}`);
+          allPossible.push(`link ${l1} to ${l2}`);
         }
       });
     });
 
-    // 4. Suggest disconnecting existing edges
+    // 4. Suggest disconnecting existing edges (all aliases)
     edges.forEach(e => {
       const s = nodes.find(n => n.id === e.source)?.data.label;
       const t = nodes.find(n => n.id === e.target)?.data.label;
-      if (s && t) allPossible.push(`disconnect ${s} from ${t}`);
+      if (s && t) {
+        allPossible.push(`disconnect ${s} from ${t}`);
+        allPossible.push(`unlink ${s} from ${t}`);
+      }
     });
 
     // Filter by whatever the user is currently typing, limit to top 4 results
@@ -306,7 +319,7 @@ export default function App() {
         >
           {/* Optional: Add color="#475569" to Background if the dots are too bright */}
           <Background />
-          <Controls style={{ button: { backgroundColor: '#1e293b', fill: '#f8fafc', borderBottom: '1px solid #334155' } }} />
+          <Controls/>
         </ReactFlow>
       </div>
 
@@ -315,9 +328,52 @@ export default function App() {
         
         {/* Left: Input & Chat Log */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <h3 style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>
-            Architecture Command Center
-          </h3>
+          {/* Command Center Header with Floating Help Menu */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', position: 'relative' }}>
+            <h3 style={{ margin: 0, fontSize: '13px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>
+              Architecture Command Center
+            </h3>
+            <button 
+              onClick={() => setShowHelp(!showHelp)}
+              style={{ 
+                background: 'none', border: 'none', color: '#3b82f6', fontSize: '12px', 
+                cursor: 'pointer', fontWeight: 'bold', padding: 0 
+              }}
+              onMouseOver={(e) => e.currentTarget.style.color = '#60a5fa'}
+              onMouseOut={(e) => e.currentTarget.style.color = '#3b82f6'}
+            >
+              {showHelp ? 'Hide Commands ▴' : 'View Commands ▾'}
+            </button>
+
+            {/* Floating Command Cheat Sheet */}
+            {showHelp && (
+              <div style={{ 
+                position: 'absolute', bottom: '100%', right: 0, marginBottom: '12px',
+                backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px', 
+                padding: '16px', fontSize: '13px', color: '#cbd5e1', zIndex: 20,
+                boxShadow: '0 -10px 25px -5px rgba(0, 0, 0, 0.5)'
+              }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <strong style={{ color: '#60a5fa', width: '85px', textAlign: 'right', marginRight: '12px' }}>Add:</strong> 
+                    <code style={{ backgroundColor: '#1e293b', padding: '4px 8px', borderRadius: '4px', color: '#e2e8f0', whiteSpace: 'nowrap' }}>add | create | new &lt;node&gt;</code>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <strong style={{ color: '#ef4444', width: '85px', textAlign: 'right', marginRight: '12px' }}>Remove:</strong> 
+                    <code style={{ backgroundColor: '#1e293b', padding: '4px 8px', borderRadius: '4px', color: '#e2e8f0', whiteSpace: 'nowrap' }}>remove | delete | drop &lt;node&gt;</code>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <strong style={{ color: '#10b981', width: '85px', textAlign: 'right', marginRight: '12px' }}>Connect:</strong> 
+                    <code style={{ backgroundColor: '#1e293b', padding: '4px 8px', borderRadius: '4px', color: '#e2e8f0', whiteSpace: 'nowrap' }}>connect | link &lt;A&gt; to &lt;B&gt;</code>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <strong style={{ color: '#f59e0b', width: '85px', textAlign: 'right', marginRight: '12px' }}>Disconnect:</strong> 
+                    <code style={{ backgroundColor: '#1e293b', padding: '4px 8px', borderRadius: '4px', color: '#e2e8f0', whiteSpace: 'nowrap' }}>disconnect | unlink &lt;A&gt; from &lt;B&gt;</code>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
           
           {/* Input with Auto-Suggest Dropdown */}
           <div style={{ position: 'relative' }}>
