@@ -1,4 +1,4 @@
-import { CommandResult } from '../types/architecture';
+import type { CommandResult } from '../types/architecture';
 
 // Helper to convert "Web Server" into "web_server" for the API
 const normalizeType = (label: string) => label.toLowerCase().replace(/\s+/g, '_');
