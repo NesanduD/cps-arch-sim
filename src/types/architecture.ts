@@ -24,3 +24,11 @@ export type CommandResult =
   | { action: 'connect'; source: string; target: string }
   | { action: 'disconnect'; source: string; target: string }
   | { action: 'unknown'; message: string };
+
+export interface SimulationTraceEdge {
+  source: string;
+  target: string;
+  latency_ms: number;
+  packets: number;
+  status: string;
+}
