@@ -3,6 +3,7 @@ import {
   ReactFlow, 
   Background, 
   Controls, 
+  MarkerType,
   type NodeChange, 
   type EdgeChange, 
   type Connection 
@@ -38,7 +39,13 @@ export default function ArchitectureCanvas({
       style: { 
         stroke: e.selected ? '#ef4444' : '#9ca3af', 
         strokeWidth: e.selected ? 3 : 2 
-      } 
+      },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        width: 15,
+        height: 15,
+        color: e.selected ? '#ef4444' : '#9ca3af',
+      }
     }));
     
     if (simulationStatus === 'completed' && simulationEdges.length > 0) {
@@ -52,6 +59,12 @@ export default function ArchitectureCanvas({
             stroke: index === currentStep ? '#2563eb' : '#93c5fd',
             strokeWidth: index === currentStep ? 4 : 2,
             strokeDasharray: index === currentStep ? undefined : '6 4'
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            width: 15,
+            height: 15,
+            color: index === currentStep ? '#2563eb' : '#93c5fd',
           }
         });
       });

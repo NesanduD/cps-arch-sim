@@ -122,9 +122,22 @@ export const useArchitectureGraph = () => {
         const targetNode = nodes.find(n => n.data.label.toLowerCase() === command.target.toLowerCase());
         
         if (sourceNode && targetNode) {
-          setEdges((eds) => eds.filter(edge => !(edge.source === sourceNode.id && edge.target === targetNode.id)));
-          logMsg = `Disconnected ${command.source} from ${command.target}`;
-          architectureChanged = true;
+          // 1. Check if the edge actually exists in the specified direction
+          const edgeExists = edges.some(edge => edge.source === sourceNode.id && edge.target === targetNode.id);
+          
+          if (edgeExists) {
+            setEdges((eds) => eds.filter(edge => !(edge.source === sourceNode.id && edge.target === targetNode.id)));
+            logMsg = `Disconnected ${command.source} from ${command.target}`;
+            architectureChanged = true;
+          } else {
+            // 2. Check if they just got the direction backwards!
+            const reverseExists = edges.some(edge => edge.source === targetNode.id && edge.target === sourceNode.id);
+            if (reverseExists) {
+              logMsg = `Error: The connection goes the other way. Try: disconnect ${command.target} from ${command.source}`;
+            } else {
+              logMsg = `Error: No connection exists between ${command.source} and ${command.target}.`;
+            }
+          }
         } else if (!sourceNode && !targetNode) {
           logMsg = `Error: Could not find nodes "${command.source}" and "${command.target}".`;
         } else if (!sourceNode) {
