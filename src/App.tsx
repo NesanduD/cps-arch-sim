@@ -235,11 +235,24 @@ export default function App() {
       const isSource = activeSimStep?.source === node.id;
       const isTarget = activeSimStep?.target === node.id;
       
-      let customStyle = {};
+      // Base dark theme style for all nodes
+      let customStyle: React.CSSProperties = { 
+        backgroundColor: '#1e293b', 
+        color: '#f8fafc', 
+        border: '1px solid #334155',
+        borderRadius: '8px',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.2)',
+        padding: '12px 24px',
+        fontWeight: 'bold',
+        fontSize: '13px',
+        letterSpacing: '0.5px'
+      };
+
+      // Override border and shadow if selected or actively simulating
       if (node.selected) {
-        customStyle = { border: '2px solid #ef4444', boxShadow: '0 0 10px rgba(239, 68, 68, 0.5)' }; // Red highlight
+        customStyle = { ...customStyle, border: '2px solid #ef4444', boxShadow: '0 0 15px rgba(239, 68, 68, 0.4)' };
       } else if (isSource || isTarget) {
-        customStyle = { border: '2px solid #3b82f6', boxShadow: '0 0 10px rgba(59, 130, 246, 0.5)' }; // Blue simulation highlight
+        customStyle = { ...customStyle, border: '2px solid #3b82f6', boxShadow: '0 0 15px rgba(59, 130, 246, 0.5)' };
       }
 
       return {
@@ -307,6 +320,23 @@ export default function App() {
       
       {/* Top: Canvas Area */}
       <div style={{ flexGrow: 1 }}>
+        {/* CSS Overrides for Handles and Watermark */}
+        <style>{`
+          .react-flow__handle {
+            width: 12px;
+            height: 12px;
+            background-color: #3b82f6;
+            border: 2px solid #1e293b;
+            transition: transform 0.2s;
+          }
+          .react-flow__handle:hover {
+            transform: scale(1.3);
+          }
+          .react-flow__attribution {
+            background: transparent !important;
+            color: #475569 !important;
+          }
+        `}</style>
         <ReactFlow 
           nodes={displayNodes} 
           edges={displayEdges} 
@@ -315,6 +345,7 @@ export default function App() {
           onConnect={onConnect}
           onEdgesDelete={onEdgesDelete}
           onNodesDelete={onNodesDelete}
+          deleteKeyCode={['Backspace', 'Delete']}
           fitView
         >
           {/* Optional: Add color="#475569" to Background if the dots are too bright */}

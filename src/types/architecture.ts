@@ -1,11 +1,13 @@
 import type { Node, Edge } from '@xyflow/react';
 
+// The data structure for each node in the architecture diagram.
 export interface ArchNodeData extends Record<string, unknown> {
   label: string;
   type: string; // Normalized string for the API (e.g., "web_server")
   isHighlighted?: boolean;
 }
 
+// The data structure for each edge in the architecture diagram.
 export interface ArchEdgeData extends Record<string, unknown> {
   isTraceEdge?: boolean;
   isActiveStep?: boolean;
@@ -14,10 +16,11 @@ export interface ArchEdgeData extends Record<string, unknown> {
   status?: string;
 }
 
+// combining the node and edge types with their respective data structures
 export type ArchNode = Node<ArchNodeData>;
 export type ArchEdge = Edge<ArchEdgeData>;
 
-// Strict parser output to separate intent from state updates
+// All accepted actions that can be performed on the architecture diagram.
 export type CommandResult =
   | { action: 'add'; label: string; normalizedType: string }
   | { action: 'remove'; label: string }
@@ -25,6 +28,7 @@ export type CommandResult =
   | { action: 'disconnect'; source: string; target: string }
   | { action: 'unknown'; message: string };
 
+// The data structure for each edge in the simulation trace(what backend returns).
 export interface SimulationTraceEdge {
   source: string;
   target: string;
