@@ -97,6 +97,7 @@ export const useArchitectureGraph = () => {
       case 'connect': {
         const sourceNode = nodes.find(n => n.data.label.toLowerCase() === command.source.toLowerCase());
         const targetNode = nodes.find(n => n.data.label.toLowerCase() === command.target.toLowerCase());
+        
         if (sourceNode && targetNode) {
           const duplicate = edges.some(edge => edge.source === sourceNode.id && edge.target === targetNode.id);
           if (duplicate) {
@@ -107,20 +108,29 @@ export const useArchitectureGraph = () => {
             logMsg = `Connected ${command.source} to ${command.target}`;
             architectureChanged = true;
           }
+        } else if (!sourceNode && !targetNode) {
+          logMsg = `Error: Could not find nodes "${command.source}" and "${command.target}".`;
+        } else if (!sourceNode) {
+          logMsg = `Error: Could not find node "${command.source}".`;
         } else {
-          logMsg = `Error: Could not find "${command.source}" or "${command.target}".`;
+          logMsg = `Error: Could not find node "${command.target}".`;
         }
         break;
       }
       case 'disconnect': {
         const sourceNode = nodes.find(n => n.data.label.toLowerCase() === command.source.toLowerCase());
         const targetNode = nodes.find(n => n.data.label.toLowerCase() === command.target.toLowerCase());
+        
         if (sourceNode && targetNode) {
           setEdges((eds) => eds.filter(edge => !(edge.source === sourceNode.id && edge.target === targetNode.id)));
           logMsg = `Disconnected ${command.source} from ${command.target}`;
           architectureChanged = true;
+        } else if (!sourceNode && !targetNode) {
+          logMsg = `Error: Could not find nodes "${command.source}" and "${command.target}".`;
+        } else if (!sourceNode) {
+          logMsg = `Error: Could not find node "${command.source}".`;
         } else {
-          logMsg = `Error: Nodes not found.`;
+          logMsg = `Error: Could not find node "${command.target}".`;
         }
         break;
       }
