@@ -15,10 +15,10 @@ The user can add, remove, connect, and disconnect architecture nodes through tex
 - **Trace Visualization:** Highlights active nodes and edges during simulation playback and displays metrics (latency, packet count, status).
 
 ### Bonus Features Implemented
-- **Premium Dark UI:** Professional slate/dark-mode interface with color-coded highlighting.
+- **Dark-themed interface:** Professional slate/dark-mode interface with color-coded highlighting.
 - **Context-Aware Autocomplete:** Floating suggestion menu that auto-populates based on current canvas state and user input.
 - **Flexible Parser:** Supports multiple command aliases (e.g., `add`/`create`/`new`).
-- **Robust Validation:** Prevents duplicate edges, alerts on unknown nodes, and handles API timeouts gracefully.
+- **Validation and Error Handling:** Prevents duplicate edges, reports unknown nodes, and handles API timeouts and network failures gracefully.
 - **Command Legend:** Collapsible cheat-sheet in the UI for quick reference.
 
 ## Tech Stack
@@ -32,17 +32,26 @@ The user can add, remove, connect, and disconnect architecture nodes through tex
 ## Project Structure
 
 ```text
-src/
-├── App.tsx               # Main UI, state management, API polling, and canvas
-├── main.tsx              # React entry point
-├── types/
-│   └── architecture.ts   # Strict TypeScript interfaces for nodes, edges, and parser output
-├── utils/
-│   └── parser.ts         # Deterministic conversion of text into CommandResult objects
-└── vite.config.ts        # Configures the dev proxy to the simulation service
+├── src/
+│   ├── App.tsx
+│   ├── main.tsx
+│   ├── types/
+│   │   └── architecture.ts
+│   └── utils/
+│       └── parser.ts
+├── index.html
+├── package.json
+├── tsconfig.json
+└── vite.config.ts
 ```
 
 ## Getting Started
+
+### Important
+
+Start the supplied simulation service before starting the frontend. The frontend expects the service to be available at `http://127.0.0.1:8000`.
+
+The frontend uses a Vite development proxy for `/simulate` requests, so it does not need to call `http://127.0.0.1:8000` directly from the browser.
 
 ### Prerequisites
 
@@ -143,6 +152,7 @@ The frontend treats `simulation_service.py` as an external third-party API.
 - **Start Simulation:** Clicking "Run Simulation" maps the React Flow nodes into the required JSON array and POSTs to `/simulate`. The service responds with a `202 Accepted` and a `simulation_id`.
 - **Async Polling:** The UI enters a loading state and polls `GET /simulate/{simulation_id}` every 1.5 seconds (max 40 attempts / 60 seconds).
 - **Trace Display:** Once the status is `completed`, the returned edges array is saved to state. The UI unlocks a stepper allowing the user to scrub through the trace step-by-step.
+- **Empty Result:** If the simulation completes with no returned edges, the application displays a message indicating that at least two nodes are required to generate a trace.
 
 ## UI Behaviour
 
@@ -155,7 +165,7 @@ The frontend treats `simulation_service.py` as an external third-party API.
 
 ### React Flow for Visualization
 
-React Flow perfectly mirrors the required data structures. The node/edge paradigm maps exactly to the expected JSON payload, making state synchronization seamless.
+React Flow’s node-and-edge model aligns closely with the architecture data required by the assignment. The node/edge paradigm aligns closely with the expected JSON payload, making architecture state synchronization straightforward.
 
 ### Separation of Parsing and State Mutation
 
@@ -175,6 +185,7 @@ To bypass CORS restrictions during local development without altering the provid
 - The command parser is strictly rule-based/deterministic. An LLM is not utilized, adhering to the baseline requirements.
 - Removing a node programmatically cascades to remove all attached edges to prevent orphaned connections.
 - The supplied simulation service is assumed to be running locally on port 8000.
+- A duplicate edge is defined as another architecture edge with the same source and target node. Reverse-direction edges, such as A → B and B → A, are treated as separate connections.
 
 ## Possible Improvements
 
