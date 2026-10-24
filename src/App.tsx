@@ -419,9 +419,11 @@ export default function App() {
                 {suggestions.map((s, idx) => (
                   <div
                     key={idx}
-                    onClick={() => {
+                    // REPLACE onClick WITH onMouseDown
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // Prevents the input box from losing focus
                       setInput(s);
-                      setIsInputFocused(false); // Hide menu after selection
+                      setIsInputFocused(false); // Hides the menu
                     }}
                     style={{
                       padding: '10px 16px', cursor: 'pointer', color: '#e2e8f0', fontSize: '14px',
