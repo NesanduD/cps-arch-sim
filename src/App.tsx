@@ -500,7 +500,7 @@ export default function App() {
             }}
             onClick={handleRunSimulation}
           >
-            {simulationStatus === 'running' ? 'Running Simulation (~15s)...' : 'Run Simulation ▶'}
+            {simulationStatus === 'running' ? 'Running Simulation...' : 'Run Simulation ▶'}
           </button>
 
           {simulationStatus === 'completed' && (
