@@ -8,11 +8,18 @@ The user can add, remove, connect, and disconnect architecture nodes through tex
 
 ### Core Features
 - **Interactive Canvas:** Architecture visualization built with React Flow.
-- **Command-Driven Editing:** Add, remove, connect, and disconnect nodes via text.
-- **UI Fallbacks:** Support for mouse-based connections and keyboard deletions (Backspace/Delete).
+- **Text-Driven Architecture Editing:** Users can add, remove, connect, and disconnect architecture nodes using text commands.
 - **Async API Integration:** Sends architecture state to the supplied simulation API and polls for results.
 - **Simulation Playback:** Visual stepper to move forward and backward through the returned simulation trace.
 - **Trace Visualization:** Highlights active nodes and edges during simulation playback and displays metrics (latency, packet count, status).
+  
+### Supplementary Canvas Interactions
+- **Mouse-Based Connections:** Users can also connect nodes by dragging between
+  node handles.
+- **Keyboard Deletion:** Users can delete a selected node or edge using
+  Backspace/Delete.
+- These interactions are optional conveniences; all required architecture
+  updates can also be performed through text commands.
 
 ### Bonus Features Implemented
 - **Dark-themed interface:** Professional slate/dark-mode interface with color-coded highlighting.
