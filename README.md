@@ -8,11 +8,18 @@ The user can add, remove, connect, and disconnect architecture nodes through tex
 
 ### Core Features
 - **Interactive Canvas:** Architecture visualization built with React Flow.
-- **Command-Driven Editing:** Add, remove, connect, and disconnect nodes via text.
-- **UI Fallbacks:** Support for mouse-based connections and keyboard deletions (Backspace/Delete).
+- **Text-Driven Architecture Editing:** Users can add, remove, connect, and disconnect architecture nodes using text commands.
 - **Async API Integration:** Sends architecture state to the supplied simulation API and polls for results.
 - **Simulation Playback:** Visual stepper to move forward and backward through the returned simulation trace.
 - **Trace Visualization:** Highlights active nodes and edges during simulation playback and displays metrics (latency, packet count, status).
+  
+### Supplementary Canvas Interactions
+- **Mouse-Based Connections:** Users can also connect nodes by dragging between
+  node handles.
+- **Keyboard Deletion:** Users can delete a selected node or edge using
+  Backspace/Delete.
+- These interactions are optional conveniences; all required architecture
+  updates can also be performed through text commands.
 
 ### Bonus Features Implemented
 - **Dark-themed interface:** Professional slate/dark-mode interface with color-coded highlighting.
@@ -34,11 +41,20 @@ The user can add, remove, connect, and disconnect architecture nodes through tex
 ```text
 ├── src/
 │   ├── App.tsx
+│   ├── App.css
 │   ├── main.tsx
+│   ├── components/
+│   │   ├── ArchitectureCanvas.tsx
+│   │   ├── CommandPanel.tsx
+│   │   └── SimulationPanel.tsx
+│   ├── hooks/
+│   │   ├── useArchitectureGraph.ts
+│   │   └── useSimulation.ts
 │   ├── types/
 │   │   └── architecture.ts
 │   └── utils/
-│       └── parser.ts
+│       ├── parser.ts
+│       └── simulationApi.ts
 ├── index.html
 ├── package.json
 ├── tsconfig.json
@@ -160,6 +176,7 @@ The frontend treats `simulation_service.py` as an external third-party API.
 - **Simulation Trace:** Simulation paths overlay the canvas dynamically. Future steps are dashed light-blue lines, while the active step is a thick, solid blue line.
 - **Node Highlighting:** Source and target nodes of the active simulation step glow blue. Selected nodes glow red.
 - **Error Handling:** Network drops, API timeouts, or invalid commands do not crash the app; they are caught safely and displayed in the terminal-style chat log.
+- **Input Locking:** The command input is disabled and visually locked while a simulation is actively running to prevent state mutations that could corrupt the async trace results.
 
 ## Key Design Decisions
 
@@ -170,6 +187,13 @@ React Flow’s node-and-edge model aligns closely with the architecture data req
 ### Separation of Parsing and State Mutation
 
 Text input is parsed in a standalone utility (`utils/parser.ts`) into a strict TypeScript Discriminated Union (`CommandResult`). The UI component only updates the canvas if it receives a structurally valid command. This ensures the parser is decoupled from React's rendering lifecycle.
+
+### Component Modularity & Custom Hooks
+
+The application is strictly decoupled into Presentation and Business Logic layers. 
+- **Business Logic:** State management is encapsulated within custom hooks (`useArchitectureGraph` and `useSimulation`). These hooks expose pure functions and state variables to the UI without coupling them to the rendering layer.
+- **API Encapsulation:** All asynchronous polling and `fetch` logic is isolated in `simulationApi.ts`, keeping the React components completely unaware of network implementation details.
+- **Presentation Layer:** The monolithic UI is split into dumb/presentation components (`ArchitectureCanvas`, `CommandPanel`, `SimulationPanel`) that rely on prop-drilling, resulting in a lightweight, declarative `App.tsx` controller.
 
 ### Non-Destructive Trace Overlays
 
