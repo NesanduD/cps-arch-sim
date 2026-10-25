@@ -1,3 +1,7 @@
+// This component is responsible for rendering the architecture canvas using React Flow.
+
+  // useMemo = React hook that memoizes the result of a function, preventing unnecessary recalculations on re-renders. 
+  // It is used here to optimize the rendering of nodes and edges based on their dependencies.
 import { useMemo } from 'react';
 import { 
   ReactFlow, 
@@ -10,7 +14,7 @@ import {
 } from '@xyflow/react';
 import type { ArchNode, ArchEdge, SimulationTraceEdge } from '../types/architecture';
 
-// 1. We define the "Props" (the data) this component needs to receive from App.tsx
+// App.tsx should pass these values(props)
 interface ArchitectureCanvasProps {
   nodes: ArchNode[];
   edges: ArchEdge[];
@@ -20,19 +24,18 @@ interface ArchitectureCanvasProps {
   onNodesDelete: (nodes: ArchNode[]) => void;
   onEdgesDelete: (edges: ArchEdge[]) => void;
   
-  // Simulation visual state
+  // Here are the additional props for simulation status and edges
   simulationStatus: string;
   simulationEdges: SimulationTraceEdge[];
   currentStep: number;
   activeSimStep: SimulationTraceEdge | null;
 }
-
 export default function ArchitectureCanvas({
   nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodesDelete, onEdgesDelete,
   simulationStatus, simulationEdges, currentStep, activeSimStep
 }: ArchitectureCanvasProps) {
 
-  // 2. We moved your brilliant displayEdges logic here!
+  // This attaches arrow markers to the edges and changes their color based on selection and simulation status.
   const displayEdges = useMemo(() => {
     const baseEdges: ArchEdge[] = edges.map(e => ({ 
       ...e, 
@@ -72,7 +75,7 @@ export default function ArchitectureCanvas({
     return baseEdges;
   }, [edges, simulationEdges, currentStep, simulationStatus]);
 
-  // 3. We moved your displayNodes logic here (with the capitalize fix!)
+  // This attaches custom styles to the nodes based on their selection and simulation status.
   const displayNodes = useMemo(() => {
     return nodes.map(node => {
       const isSource = activeSimStep?.source === node.id;
@@ -88,7 +91,7 @@ export default function ArchitectureCanvas({
         fontWeight: 'bold',
         fontSize: '13px',
         letterSpacing: '0.5px',
-        textTransform: 'capitalize' // <-- Added this fix!
+        textTransform: 'capitalize'
       };
 
       if (node.selected) {
@@ -104,7 +107,6 @@ export default function ArchitectureCanvas({
     });
   }, [nodes, activeSimStep]);
 
-  // 4. Clean, simple render using your new CSS class
   return (
     <div className="canvas-container">
       <ReactFlow 

@@ -4,7 +4,7 @@ const SIMULATION_BASE_URL = '/simulate';
 const POLL_INTERVAL_MS = 1500;
 const MAX_POLL_ATTEMPTS = 40;
 
-// 1. We define strict TypeScript interfaces for what the API returns
+// 1. Define strict TypeScript interfaces for what the API returns
 export interface SimulationStartResponse {
   simulation_id: string;
   status: string;
@@ -20,7 +20,7 @@ export interface SimulationStatusResponse {
 // A simple helper function to pause execution
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// 2. Function to start the simulation
+// Function to start the simulation
 export const startSimulationAPI = async (nodes: ArchNode[]): Promise<SimulationStartResponse> => {
   const payload = {
     nodes: nodes.map((node) => ({
@@ -42,7 +42,7 @@ export const startSimulationAPI = async (nodes: ArchNode[]): Promise<SimulationS
   return response.json();
 };
 
-// 3. Function to check the status
+// Function to check the status
 export const pollSimulationAPI = async (simulationId: string): Promise<SimulationStatusResponse> => {
   const response = await fetch(`${SIMULATION_BASE_URL}/${simulationId}`);
 
@@ -53,7 +53,7 @@ export const pollSimulationAPI = async (simulationId: string): Promise<Simulatio
   return response.json();
 };
 
-// 4. The Master Function that hides the loop from React
+// The Master Function that hides the loop from React
 export async function runSimulationUntilComplete(nodes: ArchNode[]): Promise<SimulationTraceEdge[]> {
   const startResponse = await startSimulationAPI(nodes);
   const simulationId = startResponse.simulation_id;
@@ -64,7 +64,6 @@ export async function runSimulationUntilComplete(nodes: ArchNode[]): Promise<Sim
     const statusResponse = await pollSimulationAPI(simulationId);
 
     if (statusResponse.status === 'completed') {
-      // The ?? operator means "if edges is null/undefined, return an empty array [] instead"
       return statusResponse.edges ?? [];
     }
   }

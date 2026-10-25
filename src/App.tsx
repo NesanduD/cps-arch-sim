@@ -8,14 +8,14 @@ import { useArchitectureGraph } from './hooks/useArchitectureGraph';
 import { useSimulation } from './hooks/useSimulation';
 
 export default function App() {
-  // 1. Initialize our powerful custom hooks
+  // Two independent hooks for managing the architecture and simulation state
   const architecture = useArchitectureGraph();
   const simulation = useSimulation();
 
-  // 2. Local state for the command input box
+  // Local state for the command input box
   const [input, setInput] = useState('');
 
-  // 3. The master command handler that bridges our two independent hooks
+  // The master command handler that bridges our two independent hooks
   const handleCommandSubmit = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter' || !input.trim()) return;
 
@@ -31,7 +31,6 @@ export default function App() {
     setInput('');
   };
 
-  // 4. A completely declarative, incredibly clean UI layout
   return (
     <div className="app-container">
       <ArchitectureCanvas

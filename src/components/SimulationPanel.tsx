@@ -1,6 +1,9 @@
+// This component provides a panel for running simulations, stepping through simulation traces, 
+// and displaying metrics for the active simulation step.
+
 import type { SimulationTraceEdge } from '../types/architecture';
 
-// 1. Define the exact data and functions this panel needs to operate
+// Define the exact data and functions this panel needs to operate from App.tsx
 interface SimulationPanelProps {
   simulationStatus: 'idle' | 'starting' | 'running' | 'completed' | 'error';
   simulationEdges: SimulationTraceEdge[];

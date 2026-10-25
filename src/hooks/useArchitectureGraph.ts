@@ -1,3 +1,6 @@
+// This hook manages the architecture graph state, including nodes, edges, and messages. 
+// It provides functions to handle changes in nodes and edges, as well as processing user commands to modify the architecture.
+
 import { useState, useCallback } from 'react';
 import { 
   useNodesState, 
@@ -13,6 +16,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { parseCommand } from '../utils/parser';
 import type { ArchNode, ArchEdge } from '../types/architecture';
 
+// Define the initial nodes and edges
 const initialNodes: ArchNode[] = [
   { id: 'node_1', position: { x: 100, y: 100 }, data: { label: 'Internet', type: 'internet' } },
   { id: 'node_2', position: { x: 400, y: 100 }, data: { label: 'Web Server', type: 'web_server' } },
@@ -21,6 +25,7 @@ const initialEdges: ArchEdge[] = [
   { id: 'edge_1', source: 'node_1', target: 'node_2' }
 ];
 
+// 
 export const useArchitectureGraph = () => {
   const [nodes, setNodes] = useNodesState<ArchNode>(initialNodes);
   const [edges, setEdges] = useEdgesState<ArchEdge>(initialEdges);
@@ -31,9 +36,11 @@ export const useArchitectureGraph = () => {
     setMessages((prev) => [msg, ...prev]);
   }, []);
 
+  // Handlers for node and edge changes, including adding, deleting, and connecting nodes
   const onNodesChange = useCallback((changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds) as ArchNode[]), [setNodes]);
   const onEdgesChange = useCallback((changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds) as ArchEdge[]), [setEdges]);
 
+  // The onConnect function handles new connections between nodes, ensuring no duplicates and logging the action
   const onConnect = useCallback((connection: Connection) => {
     const duplicate = edges.some(edge => edge.source === connection.source && edge.target === connection.target);
     if (duplicate) {
@@ -49,6 +56,7 @@ export const useArchitectureGraph = () => {
     }
   }, [edges, nodes, setEdges, addMessage]);
 
+  // Handlers for deleting nodes and edges, logging the actions taken by the user
   const onEdgesDelete = useCallback((deletedEdges: ArchEdge[]) => {
     deletedEdges.forEach(edge => {
       const sourceNode = nodes.find(n => n.id === edge.source);

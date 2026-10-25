@@ -1,21 +1,24 @@
+
 import { useState } from 'react';
 import type { ArchNode, SimulationTraceEdge } from '../types/architecture';
 import { runSimulationUntilComplete } from '../utils/simulationApi';
 
+// This exports a custom React hook that manages the state of a simulation. 
+// It provides functions to run the simulation, clear the state, and navigate through the simulation steps. 
+// The hook maintains the current status of the simulation, the edges generated during the simulation, and the current step in the simulation trace.
 export const useSimulation = () => {
-  // 1. We move all the simulation state variables out of App.tsx
   const [simulationStatus, setSimulationStatus] = useState<'idle' | 'starting' | 'running' | 'completed' | 'error'>('idle');
   const [simulationEdges, setSimulationEdges] = useState<SimulationTraceEdge[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
 
-  // 2. A clean helper to reset everything
+  // This function resets the simulation state to its initial values.
   const clearSimulation = () => {
     setSimulationStatus('idle');
     setSimulationEdges([]);
     setCurrentStep(0);
   };
 
-  // 3. The main function. Notice how we pass `addMessage` so the hook can still log to the chat!
+  // The main function. It runs the simulation and updates the state accordingly.
   const runSimulation = async (nodes: ArchNode[], addMessage: (msg: string) => void) => {
     if (nodes.length < 2) {
       addMessage('Error: At least 2 nodes are required to run a simulation.');
@@ -29,7 +32,7 @@ export const useSimulation = () => {
       setSimulationStatus('running');
       addMessage('Simulation running. Waiting for results (approx 15s)...');
 
-      // We call that clean API function we made in Step 1!
+      // This function call simulates the network until it completes and returns a trace of the simulation.
       const trace = await runSimulationUntilComplete(nodes);
 
       if (trace.length === 0) {
@@ -50,11 +53,11 @@ export const useSimulation = () => {
     }
   };
 
-  // 4. Helpers for the stepper UI
+  // These functions allow navigation through the simulation steps, ensuring that the current step index remains within valid bounds.
   const nextStep = () => setCurrentStep(prev => Math.min(simulationEdges.length - 1, prev + 1));
   const prevStep = () => setCurrentStep(prev => Math.max(0, prev - 1));
 
-  // 5. We "export" these so App.tsx can use them
+  // Export the state and functions for use in components that utilize this hook.
   return {
     simulationStatus,
     simulationEdges,

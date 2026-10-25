@@ -3,6 +3,7 @@ import type { CommandResult } from '../types/architecture';
 // Helper to convert "Web Server" into "web_server" for the API
 const normalizeType = (label: string) => label.toLowerCase().replace(/\s+/g, '_');
 
+// Main function to parse user commands into structured actions
 export function parseCommand(input: string): CommandResult {
   const text = input.trim();
   

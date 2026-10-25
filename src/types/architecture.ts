@@ -3,7 +3,7 @@ import type { Node, Edge } from '@xyflow/react';
 // The data structure for each node in the architecture diagram.
 export interface ArchNodeData extends Record<string, unknown> {
   label: string;
-  type: string; // Normalized string for the API (e.g., "web_server")
+  type: string;
   isHighlighted?: boolean;
 }
 

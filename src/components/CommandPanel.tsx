@@ -1,7 +1,10 @@
+// handle what the user types, provide smart autocomplete suggestions, 
+// display a cheat sheet, and show the history of past commands.
+
 import { useState, useMemo, type KeyboardEvent } from 'react';
 import type { ArchNode, ArchEdge } from '../types/architecture';
 
-// 1. Define the props this component needs from App.tsx
+// Define the props this component needs from App.tsx
 interface CommandPanelProps {
   input: string;
   setInput: (value: string) => void;
@@ -21,21 +24,23 @@ export default function CommandPanel({
   onCommandSubmit,
   isLocked
 }: CommandPanelProps) {
-  // 2. These states are now perfectly contained inside this component!
+  // State to manage whether the input is focused and whether to show the help menu
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
-  // 3. The dynamic suggestion engine moves here.
+  // The dynamic suggestion engine moves here.
   const suggestions = useMemo(() => {
     const currentLabels = nodes.map(n => String(n.data.label));
     const allPossible: string[] = [];
 
+    // If the input is empty, provide some default suggestions based on the current architecture state
     if (!input.trim()) {
       if (currentLabels.length === 0) return ['add Internet', 'create Web Server'];
       if (currentLabels.length === 1) return [`add Database`, `remove ${currentLabels[0]}`];
       if (currentLabels.length >= 2) return [`connect ${currentLabels[0]} to ${currentLabels[1]}`, `add Firewall`];
     }
 
+    // Add common node types to the suggestions
     const commonTypes = ['Database', 'Firewall', 'Load Balancer', 'Router', 'Microservice', 'API'];
     commonTypes.forEach(t => {
       allPossible.push(`add ${t}`);
@@ -43,12 +48,14 @@ export default function CommandPanel({
       allPossible.push(`new ${t}`);
     });
 
+    // Add remove/delete/drop commands for existing nodes
     currentLabels.forEach(l => {
       allPossible.push(`remove ${l}`);
       allPossible.push(`delete ${l}`);
       allPossible.push(`drop ${l}`);
     });
 
+    // Add connect/link and disconnect/unlink commands for pairs of existing nodes
     currentLabels.forEach(l1 => {
       currentLabels.forEach(l2 => {
         if (l1 !== l2) {
@@ -58,6 +65,7 @@ export default function CommandPanel({
       });
     });
 
+    // Add disconnect/unlink commands for existing edges
     edges.forEach(e => {
       const s = nodes.find(n => n.id === e.source)?.data.label;
       const t = nodes.find(n => n.id === e.target)?.data.label;
@@ -67,6 +75,7 @@ export default function CommandPanel({
       }
     });
 
+    // Filter suggestions based on the current input and limit to 4 suggestions
     return allPossible
       .filter(s => s.toLowerCase().includes(input.toLowerCase()))
       .slice(0, 4);
